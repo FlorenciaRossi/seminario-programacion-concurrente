@@ -1,58 +1,35 @@
 import threading
+import time
 
 # Variables compartidas
-turno = 1  # Indica qué proceso tiene el turno
-lock = threading.Lock()  # Bloqueo para coordinar las impresiones
-eventos = [threading.Event(), threading.Event()]  # Eventos para controlar los turnos
+banderas = [0, 0]  # Indica si cada proceso quiere entrar a la región crítica
+turno = 0  # Define de quién es el turno para entrar
 
-# Inicializar ambos eventos en falso
-eventos[0].clear()
-eventos[1].clear()
+def proceso(elemento, iteraciones):
+    global banderas, turno
 
-def Proceso1(num_iteraciones):
-    global turno
-    for _ in range(num_iteraciones):
-        eventos[0].wait()  # Espera a que sea el turno del proceso 1
-        eventos[0].clear()  # Consumir el evento
+    for _ in range(iteraciones):
+        banderas[elemento] = 1  # El proceso indica que quiere entrar
 
-        # Región crítica
-        with lock:
-            print("Proceso 1 en la región crítica")
-
-        # Cambio de turno
-        turno = 2
-        eventos[1].set()  # Despierta al proceso 2
-
-        with lock:
-            print("Proceso 1 terminó su iteración")
-
-def Proceso2(num_iteraciones):
-    global turno
-    for _ in range(num_iteraciones):
-        eventos[1].wait()  # Espera a que sea el turno del proceso 2
-        eventos[1].clear()  # Consumir el evento
+        # Espera activa si el otro proceso también quiere entrar y no es su turno
+        while banderas[1 - elemento] == 1 and turno != elemento:
+            pass  # Espera activa
 
         # Región crítica
-        with lock:
-            print("Proceso 2 en la región crítica")
+        print(f'Proceso {elemento + 1} en la región crítica...')
+        time.sleep(1)  # Simula trabajo en la región crítica
+        print(f'Termino proceso {elemento + 1}\n')
 
-        # Cambio de turno
-        turno = 1
-        eventos[0].set()  # Despierta al proceso 1
-
-        with lock:
-            print("Proceso 2 terminó su iteración")
+        # Ceder el turno al otro proceso
+        turno = 1 - elemento
+        banderas[elemento] = 0  # El proceso deja de indicar que quiere entrar
 
 def iniciar(num_iteraciones):
-    global turno
+    # Crear los hilos para ambos procesos
+    t1 = threading.Thread(target=proceso, args=(0, num_iteraciones))
+    t2 = threading.Thread(target=proceso, args=(1, num_iteraciones))
 
-    # Crear los threads para los procesos
-    t1 = threading.Thread(target=Proceso1, args=(num_iteraciones,))
-    t2 = threading.Thread(target=Proceso2, args=(num_iteraciones,))
-
-    # Iniciar los procesos alternando el turno inicial
-    eventos[0].set()  # El proceso 1 comienza primero
-
+    # Iniciar los hilos
     t1.start()
     t2.start()
 
@@ -60,6 +37,5 @@ def iniciar(num_iteraciones):
     t1.join()
     t2.join()
 
-# Iniciar la ejecución con 5 iteraciones por proceso
+# Ejecutar el algoritmo con 5 iteraciones por proceso
 iniciar(5)
-
